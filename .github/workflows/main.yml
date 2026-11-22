@@ -3,8 +3,7 @@ name: Build Android APK
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
+    branches: [main]
 
 permissions:
   contents: read
@@ -26,19 +25,22 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: package-lock.json
+          node-version: '20'
 
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-          cache: gradle
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+
+      - name: Check required project files
+        run: |
+          test -f package.json || { echo "::error::package.json is missing"; exit 1; }
+          test -f index.html || { echo "::error::index.html is missing"; exit 1; }
+          test -f src/main.jsx || { echo "::error::src/main.jsx is missing. The React application source has not been committed to this repository."; exit 1; }
 
       - name: Install dependencies
         run: |
@@ -46,13 +48,6 @@ jobs:
             npm ci
           else
             npm install --no-audit --no-fund
-          fi
-
-      - name: Verify web app entry point
-        run: |
-          if [ ! -f index.html ] || [ ! -f src/main.jsx ]; then
-            echo "::error::This repository is missing index.html or src/main.jsx. Add the React/Vite application source before building the APK."
-            exit 1
           fi
 
       - name: Build web application
@@ -83,7 +78,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: salary-records-debug-apk
+          name: app-debug-apk
           path: android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 14
