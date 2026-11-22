@@ -1,0 +1,31 @@
+import React,{useEffect,useMemo,useState} from 'react';
+
+const DB='ledger-records-v1', STORE='records';
+function openDB(){return new Promise((resolve,reject)=>{const req=indexedDB.open(DB,1);req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains(STORE))req.result.createObjectStore(STORE,{keyPath:'id'});};req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);});}
+async function allRecords(){const db=await openDB();return new Promise((resolve,reject)=>{const r=db.transaction(STORE).objectStore(STORE).getAll();r.onsuccess=()=>resolve(r.result.sort((a,b)=>b.createdAt-a.createdAt));r.onerror=()=>reject(r.error);});}
+async function saveRecord(item){const db=await openDB();return new Promise((resolve,reject)=>{const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).put(item);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});}
+async function deleteRecord(id){const db=await openDB();return new Promise((resolve,reject)=>{const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).delete(id);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});}
+const money=n=>new Intl.NumberFormat('bn-BD',{style:'currency',currency:'BDT',maximumFractionDigits:0}).format(Number(n)||0);
+export default function App(){
+ const [items,setItems]=useState([]),[type,setType]=useState('income'),[amount,setAmount]=useState(''),[party,setParty]=useState(''),[category,setCategory]=useState('বেতন'),[date,setDate]=useState(new Date().toISOString().slice(0,10)),[note,setNote]=useState(''),[photo,setPhoto]=useState(''),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
+ const refresh=async()=>setItems(await allRecords());
+ useEffect(()=>{refresh().catch(()=>setMessage('ডেটাবেস চালু করা যায়নি।'));},[]);
+ const totals=useMemo(()=>items.reduce((a,x)=>{a[x.type]+=Number(x.amount)||0;return a;},{income:0,expense:0}),[items]);
+ async function chooseGallery(e){const file=e.target.files?.[0];if(!file)return;if(!file.type.startsWith('image/')){setMessage('শুধু ছবি নির্বাচন করুন।');return;}if(file.size>8*1024*1024){setMessage('ছবির আকার ৮ MB-এর কম রাখুন।');return;}const reader=new FileReader();reader.onload=()=>setPhoto(reader.result);reader.onerror=()=>setMessage('ছবি পড়া যায়নি।');reader.readAsDataURL(file);}
+ async function takePhoto(){try{const {Camera,CameraResultType,CameraSource}=await import('@capacitor/camera');const image=await Camera.getPhoto({quality:75,allowEditing:false,resultType:CameraResultType.DataUrl,source:CameraSource.Camera});setPhoto(image.dataUrl||'');}catch(e){setMessage('ক্যামেরা চালু হয়নি। অ্যাপের Camera permission দিন অথবা Gallery ব্যবহার করুন।');}}
+ async function submit(e){e.preventDefault();if(!amount||Number(amount)<=0){setMessage('সঠিক টাকার পরিমাণ লিখুন।');return;}setBusy(true);setMessage('');try{const now=Date.now();await saveRecord({id:crypto.randomUUID(),type,amount:Number(amount),party:party.trim(),category,date,note:note.trim(),photo,createdAt:now,updatedAt:now});await refresh();setAmount('');setParty('');setNote('');setPhoto('');setMessage('রেকর্ড সফলভাবে সেভ হয়েছে।');}catch(err){setMessage('সেভ হয়নি: '+(err?.message||'ডিভাইসের স্টোরেজ পরীক্ষা করুন।'));}finally{setBusy(false);}}
+ async function remove(id){if(!confirm('এই রেকর্ডটি মুছে ফেলবেন?'))return;await deleteRecord(id);await refresh();}
+ return <main className="app"><header><div className="brandmark">৳</div><div><h1>হিসাব খাতা</h1><p>আপনার আয়-ব্যয়ের হিসাব</p></div></header>
+ <section className="summary"><article><small>মোট আয়</small><strong>{money(totals.income)}</strong></article><article><small>মোট খরচ</small><strong>{money(totals.expense)}</strong></article><article className="balance"><small>বর্তমান ব্যালেন্স</small><strong>{money(totals.income-totals.expense)}</strong></article></section>
+ <section className="panel"><h2>নতুন হিসাব যোগ করুন</h2><form onSubmit={submit}>
+ <div className="switch"><button type="button" className={type==='income'?'active':''} onClick={()=>setType('income')}>আয়</button><button type="button" className={type==='expense'?'active expense':''} onClick={()=>setType('expense')}>খরচ</button></div>
+ <label>টাকার পরিমাণ (৳)<input inputMode="decimal" type="number" min="1" step="0.01" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="যেমন ৫০০" required/></label>
+ <label>ব্যক্তি / প্রতিষ্ঠানের নাম<input value={party} onChange={e=>setParty(e.target.value)} placeholder="নাম লিখুন"/></label>
+ <div className="twocol"><label>ক্যাটাগরি<select value={category} onChange={e=>setCategory(e.target.value)}>{(type==='income'?['বেতন','ব্যবসা','বিক্রয়','অন্যান্য আয়']:['খাবার','যাতায়াত','বিল','কেনাকাটা','অন্যান্য খরচ']).map(x=><option key={x}>{x}</option>)}</select></label><label>তারিখ<input type="date" value={date} onChange={e=>setDate(e.target.value)} required/></label></div>
+ <label>বিস্তারিত<textarea rows="2" value={note} onChange={e=>setNote(e.target.value)} placeholder="প্রয়োজনীয় নোট লিখুন"/></label>
+ <div className="photoarea"><b>ছবি সংযুক্ত করুন (ঐচ্ছিক)</b>{photo&&<img className="preview" src={photo} alt="নির্বাচিত ছবি"/>}<div className="photobtns"><label className="filebtn">গ্যালারি থেকে ছবি<input type="file" accept="image/*" onChange={chooseGallery}/></label><button type="button" className="camera" onClick={takePhoto}>ক্যামেরা দিয়ে তুলুন</button></div></div>
+ <button className="submit" disabled={busy}>{busy?'সেভ হচ্ছে…':'হিসাব সেভ করুন'}</button>{message&&<p className="message" role="status">{message}</p>}
+ </form></section>
+ <section className="records"><div className="recordhead"><h2>সাম্প্রতিক হিসাব</h2><span>{items.length} টি রেকর্ড</span></div>{items.length===0?<p className="empty">এখনো কোনো হিসাব যোগ করা হয়নি।</p>:items.map(x=><article className="record" key={x.id}>{x.photo&&<img src={x.photo} alt="রেকর্ডের ছবি"/>}<div className="recordinfo"><b>{x.party||x.category}</b><small>{x.category} · {x.date}</small>{x.note&&<small>{x.note}</small>}</div><div className="recordamount"><b className={x.type==='income'?'green':'red'}>{x.type==='income'?'+':'−'}{money(x.amount)}</b><button onClick={()=>remove(x.id)}>মুছুন</button></div></article>)}</section>
+ <footer>এই ডিভাইসেই তথ্য ও ছবি সংরক্ষিত হয়। অ্যাপের ডেটা মুছলে রেকর্ডও মুছে যেতে পারে।</footer></main>;
+}
