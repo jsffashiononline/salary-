@@ -1,37 +1,22 @@
-# Ledger Records — accounting & record management (React + Firebase + Capacitor)
+# হিসাব খাতা (Ledger Records)
 
-Fields per record: title, type (income/expense), amount, party, category, date, notes, photo, auto ID, created/updated time.
-Gallery and camera use `@capacitor/camera` (Android Photo Picker on 13+, so no storage permission; only `CAMERA` is declared).
+মোবাইল-ফ্রেন্ডলি আয়-ব্যয়ের হিসাব অ্যাপ। React + Vite + Capacitor দিয়ে Android APK তৈরি করা যায়।
 
-## 1. Firebase setup (you must supply credentials)
-1. console.firebase.google.com → create project → add a **Web app** → copy its config.
-2. Authentication → Sign-in method → enable **Email/Password**.
-3. Firestore Database → create (production mode) → Rules tab → paste `firestore.rules` → Publish.
-4. Storage → Get started → Rules tab → paste `storage.rules` → Publish.
-5. `cp .env.example .env` and fill the six `VITE_FIREBASE_*` values.
+## ফিচার
+- আয় ও খরচের হিসাব, ব্যক্তি/প্রতিষ্ঠান, ক্যাটাগরি, তারিখ ও নোট
+- গ্যালারি থেকে ছবি নির্বাচন এবং Capacitor Camera দিয়ে ছবি তোলা
+- রেকর্ড ও ছবির ডেটা একসঙ্গে IndexedDB-তে সংরক্ষণ
+- মোট আয়, মোট খরচ ও ব্যালেন্স
+- Android debug APK GitHub Actions artifact হিসেবে প্রকাশ
 
-## 2. Run
-```
-npm install
-npm run dev        # browser test
-```
+## Build
+`npm install`
+`npm run build`
+`npx cap add android`
+`npx cap sync android`
 
-## 3. Android APK
-**Local (Android Studio + JDK 17):**
-```
-npm install && npm run build
-npx cap add android
-# add to android/app/src/main/AndroidManifest.xml, before <application>:
-#   <uses-permission android:name="android.permission.CAMERA" />
-#   <uses-feature android:name="android.hardware.camera" android:required="false" />
-npx cap sync android
-cd android && ./gradlew assembleDebug   # APK: android/app/build/outputs/apk/debug/app-debug.apk
-```
-**GitHub Actions:** push to GitHub, add the six `VITE_FIREBASE_*` values as repository secrets, run workflow *Build debug APK*, download artifact `app-debug-apk`.
+## Data storage note
+বর্তমান সংস্করণে রেকর্ড ও ছবি ডিভাইসের IndexedDB-তে থাকে; এটি Firebase cloud sync নয়। অ্যাপের ডেটা clear/uninstall করলে লোকাল রেকর্ড হারাতে পারে। Firebase cloud sync চালু করতে Firebase project configuration, Authentication/Firestore/Storage rules এবং সুরক্ষিত deployment configuration আলাদাভাবে সেট করতে হবে।
 
-## Save flow
-validate → upload image to Firebase Storage → get permanent https download URL → write Firestore doc → success toast only after both succeed.
-On failure the form keeps all input, shows the real error code, and Save can be retried. A new file is deleted if the database write fails; the old file is deleted only after the update succeeds.
-
-## Status
-Not yet compiled or run by the author of this archive (no network in the build sandbox). Test on your device and report errors.
+## Android
+GitHub Actions-এর `Build Android APK` workflow সফল হলে Actions → workflow run → Artifacts থেকে `app-debug-apk` ডাউনলোড করা যাবে।
