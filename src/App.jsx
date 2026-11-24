@@ -1,19 +1,29 @@
 import React,{useEffect,useMemo,useState} from 'react';
 
-const DB='my-salary-db', VERSION=2, RECORDS='records', SETTINGS='settings';
+let activeUid='';
+const DB=()=>activeUid?'my-salary-db-'+activeUid:'my-salary-db', LEGACY_DB='my-salary-db', VERSION=2, RECORDS='records', SETTINGS='settings';
 const today=()=>new Date().toISOString().slice(0,10);
 const monthKey=d=>String(d||today()).slice(0,7);
 const money=n=>'৳ '+new Intl.NumberFormat('en-BD',{maximumFractionDigits:2}).format(Number(n)||0);
-function dbOpen(){return new Promise((resolve,reject)=>{const q=indexedDB.open(DB,VERSION);q.onupgradeneeded=()=>{const d=q.result;if(!d.objectStoreNames.contains(RECORDS))d.createObjectStore(RECORDS,{keyPath:'id'});if(!d.objectStoreNames.contains(SETTINGS))d.createObjectStore(SETTINGS,{keyPath:'month'});};q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error);});}
+function dbOpen(){return new Promise((resolve,reject)=>{const q=indexedDB.open(DB(),VERSION);q.onupgradeneeded=()=>{const d=q.result;if(!d.objectStoreNames.contains(RECORDS))d.createObjectStore(RECORDS,{keyPath:'id'});if(!d.objectStoreNames.contains(SETTINGS))d.createObjectStore(SETTINGS,{keyPath:'month'});};q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error);});}
 async function getAll(store){const d=await dbOpen();return new Promise((ok,no)=>{const q=d.transaction(store).objectStore(store).getAll();q.onsuccess=()=>ok(q.result);q.onerror=()=>no(q.error);});}
 async function put(store,value){const d=await dbOpen();return new Promise((ok,no)=>{const t=d.transaction(store,'readwrite');t.objectStore(store).put(value);t.oncomplete=ok;t.onerror=()=>no(t.error);});}
 async function del(id){const d=await dbOpen();return new Promise((ok,no)=>{const t=d.transaction(RECORDS,'readwrite');t.objectStore(RECORDS).delete(id);t.oncomplete=ok;t.onerror=()=>no(t.error);});}
 const label={weekly:'সাপ্তাহিক নেওয়া টাকা',bonus:'প্রোডাকশন বোনাস',expense:'দৈনিক খরচ'};
-export default function App(){
+
+async function migrateLegacy(uid){
+ const marker='my-salary-legacy-migrated'; if(localStorage.getItem(marker)) return;
+ const old=await new Promise((resolve,reject)=>{const q=indexedDB.open(LEGACY_DB,VERSION);q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error);});
+ const read=name=>new Promise((resolve,reject)=>{if(!old.objectStoreNames.contains(name)){resolve([]);return;}const q=old.transaction(name).objectStore(name).getAll();q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error);});
+ const [records,settings]=await Promise.all([read(RECORDS),read(SETTINGS)]);old.close();
+ if(records.length||settings.length){const target=await dbOpen();await new Promise((resolve,reject)=>{const tx=target.transaction([RECORDS,SETTINGS],'readwrite');records.forEach(x=>tx.objectStore(RECORDS).put(x));settings.forEach(x=>tx.objectStore(SETTINGS).put(x));tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});target.close();}
+ localStorage.setItem(marker,uid);
+}
+export default function App({uid}){
  const [records,setRecords]=useState([]),[settings,setSettings]=useState({salary:'',snack:''}),[salary,setSalary]=useState(''),[snack,setSnack]=useState('');
  const [page,setPage]=useState('home'),[tab,setTab]=useState('weekly'),[amount,setAmount]=useState(''),[date,setDate]=useState(today()),[note,setNote]=useState(''),[photo,setPhoto]=useState(''),[selectedPhoto,setSelectedPhoto]=useState(''),[busy,setBusy]=useState(false),[msg,setMsg]=useState(''),[month,setMonth]=useState(monthKey(today()));
  const refresh=async()=>{const [r,s]=await Promise.all([getAll(RECORDS),getAll(SETTINGS)]);setRecords(r.sort((a,b)=>b.createdAt-a.createdAt));const current=s.find(x=>x.month===monthKey(today()))||{salary:'',snack:''};setSettings(current);setSalary(String(current.salary??''));setSnack(String(current.snack??''));};
- useEffect(()=>{refresh().catch(()=>setMsg('ফোনের স্টোরেজ খুলতে সমস্যা হয়েছে।'));},[]);
+ useEffect(()=>{activeUid=uid||'';migrateLegacy(uid).then(refresh).catch(()=>setMsg('ফোনের স্টোরেজ খুলতে সমস্যা হয়েছে।'));},[uid]);
  useEffect(()=>{if(!selectedPhoto)return;const onKeyDown=e=>{if(e.key==='Escape')setSelectedPhoto('');};window.addEventListener('keydown',onKeyDown);return()=>window.removeEventListener('keydown',onKeyDown);},[selectedPhoto]);
  const current=useMemo(()=>records.filter(x=>monthKey(x.date)===month),[records,month]);
  const sum=(kind)=>current.filter(x=>x.type===kind).reduce((n,x)=>n+Number(x.amount||0),0);
