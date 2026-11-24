@@ -3,13 +3,13 @@ import { getAuth } from 'firebase/auth';
 import { getFunctions } from 'firebase/functions';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCBqKIbbfPzT6YLDRsmJp-k66FCmMoR62o",
-  authDomain: "salary-and-production.firebaseapp.com",
-  projectId: "salary-and-production",
-  storageBucket: "salary-and-production.firebasestorage.app",
-  messagingSenderId: "237716390645",
-  appId: "1:237716390645:web:9d2f9ccc251f29db643bbc",
-  measurementId: "G-RWLVC0KH63"
+  apiKey: "AIzaSyB8rsQe3KMz6VS6cp1BeSwuXOD2QWOSTgY",
+  authDomain: "my-salary-6e828.firebaseapp.com",
+  projectId: "my-salary-6e828",
+  storageBucket: "my-salary-6e828.firebasestorage.app",
+  messagingSenderId: "149270294923",
+  appId: "1:149270294923:web:ae6420f2e44e071ba37f8e",
+  measurementId: "G-08H8DYWZ5R"
 };
 
 const app = initializeApp(firebaseConfig);
