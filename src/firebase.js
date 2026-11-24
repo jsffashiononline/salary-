@@ -8,8 +8,8 @@ const firebaseConfig = {
   projectId: "salary-and-production",
   storageBucket: "salary-and-production.firebasestorage.app",
   messagingSenderId: "237716390645",
-  appId: "1:237716390645:web:3d556f2956018d86643bbc",
-  measurementId: "G-E8H2V0RWWY"
+  appId: "1:237716390645:web:9d2f9ccc251f29db643bbc",
+  measurementId: "G-RWLVC0KH63"
 };
 
 const app = initializeApp(firebaseConfig);
