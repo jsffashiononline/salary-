@@ -8,10 +8,10 @@ initializeApp();
 const db=getFirestore();
 function normalizePhone(phone){
  if(typeof phone!=='string')throw new HttpsError('invalid-argument','সঠিক মোবাইল নম্বর দিন।');
- let p=phone.replace(/[\\s()-]/g,'');
- if(/^01\\d{9}$/.test(p))p='+88'+p;
- else if(/^8801\\d{9}$/.test(p))p='+'+p;
- if(!/^\\+8801[3-9]\\d{8}$/.test(p))throw new HttpsError('invalid-argument','বাংলাদেশের সঠিক মোবাইল নম্বর দিন।');
+ let p=phone.replace(/[\s()-]/g,'');
+ if(/^01\d{9}$/.test(p))p='+88'+p;
+ else if(/^8801\d{9}$/.test(p))p='+'+p;
+ if(!/^\+8801[3-9]\d{8}$/.test(p))throw new HttpsError('invalid-argument','বাংলাদেশের সঠিক মোবাইল নম্বর দিন।');
  return p;
 }
 exports.phonePasswordAuth=onCall({region:'us-central1',maxInstances:10},async(request)=>{
